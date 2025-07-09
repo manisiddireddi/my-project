@@ -4,5 +4,8 @@
     "start:01": "npm run start --prefix 01-basic",
     "start:02": "npm run dev --prefix 02-voice",
     "install": "npm install --prefix 01-basic && npm install --prefix 02-voice"
+  },
+  "dependencies": {
+    "dotenv": "^17.1.0"
   }
 }

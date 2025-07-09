@@ -1,5 +1,9 @@
+import dotenv from "dotenv";
+dotenv.config();
 import { Agent, tool, run } from "@openai/agents";
 import z from "zod";
+
+console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY);
 
 const getWeather = tool({
   name: "getWeather",
