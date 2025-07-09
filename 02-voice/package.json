@@ -5,8 +5,7 @@
     "start": "next start",
     "dev": "next dev",
     "build": "next build",
-    "lint": "next lint",
-    "start:02": "npm run dev"
+    "lint": "next lint"
   },
   "dependencies": {
     "@openai/agents": "*",

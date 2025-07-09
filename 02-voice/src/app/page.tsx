@@ -9,15 +9,78 @@ import {
 } from "@openai/agents/realtime";
 import { getSessionToken } from "./server/token";
 import z from "zod";
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(req: NextRequest) {
+  const { location } = await req.json();
+  const apiKey = process.env.OPENWEATHER_API_KEY;
+  if (!apiKey) return NextResponse.json({ error: "API key missing" }, { status: 500 });
+
+  let lat, lon, city, country;
+
+  if (/^\d{5,6}$/.test(location.trim())) {
+    // Pincode (India)
+    const geoUrl = `https://api.openweathermap.org/geo/1.0/zip?zip=${location.trim()},IN&appid=${apiKey}`;
+    const geoRes = await fetch(geoUrl);
+    const geoData = await geoRes.json();
+    if (!geoData.lat || !geoData.lon) return NextResponse.json({ error: "Location not found" }, { status: 404 });
+    lat = geoData.lat;
+    lon = geoData.lon;
+    city = geoData.name;
+    country = geoData.country;
+  } else {
+    // City name
+    const geoUrl = `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(location)}&limit=1&appid=${apiKey}`;
+    const geoRes = await fetch(geoUrl);
+    const geoData = await geoRes.json();
+    if (!geoData[0]) return NextResponse.json({ error: "Location not found" }, { status: 404 });
+    lat = geoData[0].lat;
+    lon = geoData[0].lon;
+    city = geoData[0].name;
+    country = geoData[0].country;
+  }
+
+  const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`;
+  const response = await fetch(url);
+  if (!response.ok) return NextResponse.json({ error: "Weather fetch failed" }, { status: 500 });
+  const data = await response.json();
+
+  if (!data.list || data.list.length === 0) return NextResponse.json({ error: "No forecast data" }, { status: 404 });
+  const next = data.list[0];
+  const time = next.dt_txt;
+  const temp = next.main.temp;
+  const desc = next.weather[0].description;
+  const humidity = next.main.humidity;
+  const wind = next.wind.speed;
+
+  return NextResponse.json({
+    forecast: `Weather forecast for ${city}, ${country} at ${time}:
+- ${desc}
+- Temperature: ${temp}°C
+- Humidity: ${humidity}%
+- Wind speed: ${wind} m/s`
+  });
+}
+
+const fetchWeather = async (location: string) => {
+  const res = await fetch("/api/weather", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ location }),
+  });
+  const data = await res.json();
+  return data.forecast || data.error || "No response.";
+};
 
 const getWeather = tool({
   name: "getWeather",
-  description: "Get the weather in a given location",
+  description: "Get the weather in a given location or pincode",
   parameters: z.object({
     location: z.string(),
   }),
   execute: async ({ location }) => {
-    return `The weather in ${location} is sunny`;
+    // Call your server API route
+    return await fetchWeather(location);
   },
 });
 
